@@ -111,31 +111,108 @@ docker search ten_image
 
 Lưu ý: Bạn có thể thay đổi các tham số của các câu lệnh trên để phù hợp với nhu cầu của mình.
 
-Tích hợp Docker vào ứng dụng ReactJS sẽ giúp bạn đóng gói ứng dụng và các phụ thuộc của nó vào một image Docker, và triển khai nó trên bất kỳ môi trường nào có Docker cài đặt. Bằng cách đó, bạn có thể đảm bảo rằng ứng dụng của bạn sẽ chạy một cách đồng nhất trên môi trường phát triển và sản phẩm.
+Để tích hợp cả hai thư mục client và server vào Docker, bạn có thể tạo hai container Docker riêng biệt cho mỗi thư mục và sử dụng Docker Compose để quản lý chúng. Với cách tiếp cận này, bạn có thể chạy các câu lệnh `npm run` khác nhau cho từng container.
 
-Dưới đây là các bước cơ bản để tích hợp Docker vào ứng dụng ReactJS:
+Dưới đây là một ví dụ cấu trúc thư mục và tệp tin `Dockerfile` cho mỗi container:
 
-1. Tạo Dockerfile: Tạo một Dockerfile để đóng gói ứng dụng và các phụ thuộc của nó vào một image Docker. Bạn có thể bắt đầu với một Dockerfile đơn giản như sau:
+1. Thư mục `client`:
+```
+client/
+  |- Dockerfile
+  |- package.json
+  |- src/
+  |- ...
 
 ```
-# Sử dụng image nodejs làm base image
+File Dockerfile:
+```Dockerfile
 FROM node:latest
 
-# Tạo thư mục app và copy nội dung của thư mục app vào
 WORKDIR /app
-COPY . /app
-
-# Cài đặt các phụ thuộc của ứng dụng
+COPY package*.json ./
 RUN npm install
+COPY . .
 
-# Build ứng dụng
-RUN npm run build
+EXPOSE 3000
 
-# Chạy ứng dụng
-CMD [ "npm", "start" ]
-
+CMD [ "npm", "run", "start" ]
 ```
 
+2. Thư mục `server`:
+```
+server/
+  |- Dockerfile
+  |- package.json
+  |- index.js
+  |- ...
+
+```
+File Dockerfile:
+```Dockerfile
+FROM node:latest
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+
+EXPOSE 8080
+
+CMD [ "npm", "run", "start" ]
+```
+
+Sau đó, bạn có thể tạo một tệp tin `docker-compose.yml` để quản lý cả hai container, như sau:
+
+```yaml
+version: '3.8'
+
+services:
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./client:/app
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./server:/app
+```
+
+Trong file `docker-compose.yml`, các dịch vụ `client` và `server` được định nghĩa bằng cách sử dụng các thông số build, cổng và thư mục lưu trữ để quản lý các container tương ứng. Bạn có thể chạy lệnh `docker-compose up` để chạy cả hai container cùng lúc.
+
+Sau khi chạy lệnh này, Docker sẽ tạo và khởi chạy các container dựa trên cấu hình được định nghĩa trong file `docker-compose.yml`. Bạn có thể truy cập ứng dụng của mình trên các cổng tương ứng, ví dụ `localhost:3000` cho container `client` và `localhost:8080` cho container `server`.
+
+Sau đó, để build các ứng dụng này, bạn có thể sử dụng lệnh sau:
+
+```yaml
+docker build -t client-image -f client/Dockerfile .
+docker build -t server-image -f server/Dockerfile .
+```
+Trong đó:
+
+-t để chỉ định tên và tag cho image (ví dụ: client-image và server-image)
+-f để chỉ định đường dẫn đến Dockerfile cho mỗi ứng dụng (ví dụ: client/Dockerfile và server/Dockerfile)
+. để chỉ định đường dẫn đến thư mục chứa Dockerfile (ví dụ: dấu chấm để chỉ định rằng Dockerfile được đặt trong thư mục hiện tại)
+
+Sau đó, bạn có thể sử dụng lệnh sau để khởi chạy cả hai ứng dụng:
+
+Copy code
+docker-compose up
+Lệnh này sẽ tự động tạo và chạy các container cho cả hai ứng dụng. Các container này sẽ được kết nối với nhau thông qua mạng mặc định của Docker Compose.
+
+Nếu bạn muốn tắt các container, bạn có thể sử dụng tổ hợp phím Ctrl + C hoặc sử dụng lệnh:
+
+Copy code
+docker-compose down
+Lệnh này sẽ dừng và xóa các container đã được tạo ra bởi Docker Compose.
+----------------------------------------------------------------
 1. Build Docker image: Chạy câu lệnh sau để build image từ Dockerfile:
 
 ```
